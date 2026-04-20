@@ -21,6 +21,8 @@ def index():
 @app.route("/merge", methods=["POST"])
 def merge():
     files = request.files.getlist("files")
+    # 櫃號封條優先排序
+files = sorted(files, key=lambda x: ("櫃號封條" not in x.filename, x.filename))
     all_data = []
     errors = []
 
