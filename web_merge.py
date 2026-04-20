@@ -39,11 +39,19 @@ files = sorted(files, key=lambda x: ("櫃號封條" not in x.filename, x.filenam
 
             # 讀所有sheet
             excel_file = pd.ExcelFile(filepath)
-            for sheet in excel_file.sheet_names:
-                df = pd.read_excel(filepath, sheet_name=sheet)
-                df["來源檔案"] = filename
-                df["工作表"] = sheet
-                all_data.append(df)
+            # 如果是櫃號封條 → 只取第1個sheet
+if "櫃號封條" in filename:
+    df = pd.read_excel(filepath, sheet_name=0)
+    df["來源檔案"] = filename
+    df["工作表"] = "Sheet1"
+    all_data.append(df)
+else:
+    # 其他檔 → 全部sheet
+    for sheet in excel_file.sheet_names:
+        df = pd.read_excel(filepath, sheet_name=sheet)
+        df["來源檔案"] = filename
+        df["工作表"] = sheet
+        all_data.append(df)
 
         except Exception as e:
             errors.append(f"{filename} 錯誤: {str(e)}")
