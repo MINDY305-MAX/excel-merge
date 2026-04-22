@@ -41,14 +41,14 @@ files = sorted(files, key=lambda x: ("櫃號封條" not in x.filename, x.filenam
             excel_file = pd.ExcelFile(filepath)
             # 如果是櫃號封條 → 只取第1個sheet
 if "櫃號封條" in filename:
-    df = pd.read_excel(filepath, sheet_name=0)
+    df = pd.read_excel(filepath, sheet_name=0, engine="xlrd")
     df["來源檔案"] = filename
     df["工作表"] = "Sheet1"
     all_data.append(df)
 else:
     # 其他檔 → 全部sheet
     for sheet in excel_file.sheet_names:
-        df = pd.read_excel(filepath, sheet_name=sheet)
+        df = pd.read_excel(filepath, sheet_name=sheet, engine="xlrd")
         df["來源檔案"] = filename
         df["工作表"] = sheet
         all_data.append(df)
