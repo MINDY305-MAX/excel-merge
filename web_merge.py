@@ -2,7 +2,7 @@ from flask import Flask, request, send_file
 import os
 from werkzeug.utils import secure_filename
 from openpyxl import load_workbook, Workbook
-import pandas as pd
+import xlrd
 
 app = Flask(__name__)
 UPLOAD_FOLDER = "uploads"
@@ -11,7 +11,7 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 @app.route("/")
 def index():
     return '''
-    <h2>Excel 合併工具（優化版）</h2>
+    <h2>Excel 合併工具（穩定版）</h2>
     <form method="post" action="/merge" enctype="multipart/form-data">
         <input type="file" name="files" multiple>
         <br><br>
@@ -23,7 +23,7 @@ def index():
 def merge():
     files = request.files.getlist("files")
 
-    # 櫃號封條優先排序
+    # 櫃號封條優先
     files = sorted(files, key=lambda x: ("櫃號封條" not in x.filename, x.filename))
 
     new_wb = Workbook()
@@ -39,50 +39,37 @@ def merge():
         file.save(filepath)
 
         try:
-            # ===== 處理 .xls =====
+            # ===== XLS =====
             if filename.endswith(".xls"):
-    import xlrd
-    book = xlrd.open_workbook(filepath)
+                book = xlrd.open_workbook(filepath)
 
-    # 櫃號封條 → 只取第一個sheet
-    if "櫃號封條" in filename:
-        sheet_list = [book.sheet_by_index(0)]
-    else:
-        sheet_list = [book.sheet_by_index(i) for i in range(book.nsheets)]
+                if "櫃號封條" in filename:
+                    sheet_list = [book.sheet_by_index(0)]
+                else:
+                    sheet_list = [book.sheet_by_index(i) for i in range(book.nsheets)]
 
-    for sheet in sheet_list:
-        new_sheet = new_wb.create_sheet(title=sheet.name[:31])
+                for sheet in sheet_list:
+                    new_sheet = new_wb.create_sheet(title=sheet.name[:31])
 
-        for r in range(sheet.nrows):
-            for c in range(sheet.ncols):
-                new_sheet.cell(row=r+1, column=c+1, value=sheet.cell_value(r, c))
+                    for r in range(sheet.nrows):
+                        for c in range(sheet.ncols):
+                            new_sheet.cell(row=r+1, column=c+1, value=sheet.cell_value(r, c))
 
-            # ===== 處理 .xlsx =====
+            # ===== XLSX =====
             else:
                 wb = load_workbook(filepath)
 
-            # ===== 櫃號封條邏輯 =====
-            if "櫃號封條" in filename:
-                sheets = [wb.worksheets[0]]
-            else:
-                sheets = wb.worksheets
+                if "櫃號封條" in filename:
+                    sheets = [wb.worksheets[0]]
+                else:
+                    sheets = wb.worksheets
 
-            # ===== 複製內容 =====
-            for sheet in sheets:
-                new_sheet = new_wb.create_sheet(title=sheet.title[:31])
+                for sheet in sheets:
+                    new_sheet = new_wb.create_sheet(title=sheet.title[:31])
 
-                for row in sheet.iter_rows():
-                    for cell in row:
-                        new_sheet[cell.coordinate].value = cell.value
-
-                # 自動調整欄寬（優化排版）
-                for col in new_sheet.columns:
-                    max_length = 0
-                    col_letter = col[0].column_letter
-                    for cell in col:
-                        if cell.value:
-                            max_length = max(max_length, len(str(cell.value)))
-                    new_sheet.column_dimensions[col_letter].width = max_length + 2
+                    for row in sheet.iter_rows():
+                        for cell in row:
+                            new_sheet[cell.coordinate].value = cell.value
 
         except Exception as e:
             print("錯誤:", e)
