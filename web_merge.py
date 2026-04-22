@@ -27,31 +27,25 @@ def merge():
     new_wb.remove(new_wb.active)
 
     for file in files:
-        filename = secure_filename(file.filename)
+        raw_filename = file.filename  # ← 用這個判斷（保留中文）
+        filename = secure_filename(file.filename)  # ← 存檔用
 
-        if not (filename.endswith(".xls") or filename.endswith(".xlsx")):
+        if not (raw_filename.endswith(".xls") or raw_filename.endswith(".xlsx")):
             continue
 
         filepath = os.path.join(UPLOAD_FOLDER, filename)
         file.save(filepath)
 
         try:
-            # ===== 處理 .xls =====
-            if filename.endswith(".xls"):
+            # ===== XLS =====
+            if raw_filename.endswith(".xls"):
                 book = xlrd.open_workbook(filepath)
 
-                sheet_list = []
-                for i in range(book.nsheets):
-                    sheet = book.sheet_by_index(i)
-
-                    # 判斷是否是櫃號封條（看A1）
-                    first_cell = str(sheet.cell_value(0, 0))
-
-                    if "櫃號" in first_cell or "封條" in first_cell:
-                        sheet_list = [sheet]   # 只抓這一頁
-                        break
-                    else:
-                        sheet_list.append(sheet)
+                # 檔名判斷櫃號封條
+                if "櫃號封條" in raw_filename:
+                    sheet_list = [book.sheet_by_index(0)]
+                else:
+                    sheet_list = [book.sheet_by_index(i) for i in range(book.nsheets)]
 
                 for sheet in sheet_list:
                     new_sheet = new_wb.create_sheet(title=sheet.name[:31])
@@ -60,19 +54,14 @@ def merge():
                         for c in range(sheet.ncols):
                             new_sheet.cell(row=r+1, column=c+1, value=sheet.cell_value(r, c))
 
-            # ===== 處理 .xlsx =====
+            # ===== XLSX =====
             else:
                 wb = load_workbook(filepath)
 
-                sheets = []
-                for sheet in wb.worksheets:
-                    first_cell = str(sheet["A1"].value)
-
-                    if first_cell and ("櫃號" in first_cell or "封條" in first_cell):
-                        sheets = [sheet]
-                        break
-                    else:
-                        sheets.append(sheet)
+                if "櫃號封條" in raw_filename:
+                    sheets = [wb.worksheets[0]]
+                else:
+                    sheets = wb.worksheets
 
                 for sheet in sheets:
                     new_sheet = new_wb.create_sheet(title=sheet.title[:31])
