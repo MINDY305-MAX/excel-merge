@@ -10,7 +10,7 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 @app.route("/")
 def index():
     return '''
-    <h2>Excel 合併工具（強化版）</h2>
+    <h2>Excel 合併工具（完整版）</h2>
     <form method="post" action="/merge" enctype="multipart/form-data">
         <input type="file" name="files" multiple>
         <br><br>
@@ -21,8 +21,10 @@ def index():
 @app.route("/merge", methods=["POST"])
 def merge():
     files = request.files.getlist("files")
+
     # 櫃號封條優先排序
-files = sorted(files, key=lambda x: ("櫃號封條" not in x.filename, x.filename))
+    files = sorted(files, key=lambda x: ("櫃號封條" not in x.filename, x.filename))
+
     all_data = []
     errors = []
 
@@ -37,21 +39,25 @@ files = sorted(files, key=lambda x: ("櫃號封條" not in x.filename, x.filenam
             filepath = os.path.join(UPLOAD_FOLDER, filename)
             file.save(filepath)
 
-            # 讀所有sheet
             excel_file = pd.ExcelFile(filepath)
-            # 如果是櫃號封條 → 只取第1個sheet
-if "櫃號封條" in filename:
-    df = pd.read_excel(filepath, sheet_name=0, engine="xlrd")
-    df["來源檔案"] = filename
-    df["工作表"] = "Sheet1"
-    all_data.append(df)
-else:
-    # 其他檔 → 全部sheet
-    for sheet in excel_file.sheet_names:
-        df = pd.read_excel(filepath, sheet_name=sheet, engine="xlrd")
-        df["來源檔案"] = filename
-        df["工作表"] = sheet
-        all_data.append(df)
+
+            # 櫃號封條 → 只抓第1個sheet
+            if "櫃號封條" in filename:
+                df = pd.read_excel(filepath, sheet_name=0, engine="xlrd")
+                df["來源檔案"] = filename
+                df["工作表"] = "Sheet1"
+                all_data.append(df)
+            else:
+                # 其他 → 全部sheet
+                for sheet in excel_file.sheet_names:
+                    if filename.endswith(".xls"):
+                        df = pd.read_excel(filepath, sheet_name=sheet, engine="xlrd")
+                    else:
+                        df = pd.read_excel(filepath, sheet_name=sheet)
+
+                    df["來源檔案"] = filename
+                    df["工作表"] = sheet
+                    all_data.append(df)
 
         except Exception as e:
             errors.append(f"{filename} 錯誤: {str(e)}")
@@ -63,11 +69,6 @@ else:
 
     output_path = os.path.join(UPLOAD_FOLDER, "merged.xlsx")
     merged.to_excel(output_path, index=False)
-
-    result_msg = f"成功合併 {len(all_data)} 個資料表<br>"
-
-    if errors:
-        result_msg += "<br>以下檔案有問題：<br>" + "<br>".join(errors)
 
     return send_file(output_path, as_attachment=True)
 
