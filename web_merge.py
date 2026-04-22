@@ -23,9 +23,6 @@ def index():
 def merge():
     files = request.files.getlist("files")
 
-    # 櫃號封條優先
-    files = sorted(files, key=lambda x: ("櫃號封條" not in x.filename, x.filename))
-
     new_wb = Workbook()
     new_wb.remove(new_wb.active)
 
@@ -39,14 +36,22 @@ def merge():
         file.save(filepath)
 
         try:
-            # ===== XLS =====
+            # ===== 處理 .xls =====
             if filename.endswith(".xls"):
                 book = xlrd.open_workbook(filepath)
 
-                if "櫃號封條" in filename:
-                    sheet_list = [book.sheet_by_index(0)]
-                else:
-                    sheet_list = [book.sheet_by_index(i) for i in range(book.nsheets)]
+                sheet_list = []
+                for i in range(book.nsheets):
+                    sheet = book.sheet_by_index(i)
+
+                    # 判斷是否是櫃號封條（看A1）
+                    first_cell = str(sheet.cell_value(0, 0))
+
+                    if "櫃號" in first_cell or "封條" in first_cell:
+                        sheet_list = [sheet]   # 只抓這一頁
+                        break
+                    else:
+                        sheet_list.append(sheet)
 
                 for sheet in sheet_list:
                     new_sheet = new_wb.create_sheet(title=sheet.name[:31])
@@ -55,14 +60,19 @@ def merge():
                         for c in range(sheet.ncols):
                             new_sheet.cell(row=r+1, column=c+1, value=sheet.cell_value(r, c))
 
-            # ===== XLSX =====
+            # ===== 處理 .xlsx =====
             else:
                 wb = load_workbook(filepath)
 
-                if "櫃號封條" in filename:
-                    sheets = [wb.worksheets[0]]
-                else:
-                    sheets = wb.worksheets
+                sheets = []
+                for sheet in wb.worksheets:
+                    first_cell = str(sheet["A1"].value)
+
+                    if first_cell and ("櫃號" in first_cell or "封條" in first_cell):
+                        sheets = [sheet]
+                        break
+                    else:
+                        sheets.append(sheet)
 
                 for sheet in sheets:
                     new_sheet = new_wb.create_sheet(title=sheet.title[:31])
