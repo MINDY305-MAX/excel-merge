@@ -41,10 +41,21 @@ def merge():
         try:
             # ===== 處理 .xls =====
             if filename.endswith(".xls"):
-                df = pd.read_excel(filepath, engine="xlrd")
-                temp_xlsx = filepath + "_temp.xlsx"
-                df.to_excel(temp_xlsx, index=False)
-                wb = load_workbook(temp_xlsx)
+    import xlrd
+    book = xlrd.open_workbook(filepath)
+
+    # 櫃號封條 → 只取第一個sheet
+    if "櫃號封條" in filename:
+        sheet_list = [book.sheet_by_index(0)]
+    else:
+        sheet_list = [book.sheet_by_index(i) for i in range(book.nsheets)]
+
+    for sheet in sheet_list:
+        new_sheet = new_wb.create_sheet(title=sheet.name[:31])
+
+        for r in range(sheet.nrows):
+            for c in range(sheet.ncols):
+                new_sheet.cell(row=r+1, column=c+1, value=sheet.cell_value(r, c))
 
             # ===== 處理 .xlsx =====
             else:
