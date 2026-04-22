@@ -11,7 +11,7 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 @app.route("/")
 def index():
     return '''
-    <h2>Excel 合併工具（保留格式 + 支援xls）</h2>
+    <h2>Excel 合併工具（優化版）</h2>
     <form method="post" action="/merge" enctype="multipart/form-data">
         <input type="file" name="files" multiple>
         <br><br>
@@ -39,29 +39,42 @@ def merge():
         file.save(filepath)
 
         try:
-            # 如果是 .xls → 先轉成 .xlsx
+            # ===== 處理 .xls =====
             if filename.endswith(".xls"):
                 df = pd.read_excel(filepath, engine="xlrd")
-                temp_xlsx = filepath + "x"
+                temp_xlsx = filepath + "_temp.xlsx"
                 df.to_excel(temp_xlsx, index=False)
                 wb = load_workbook(temp_xlsx)
+
+            # ===== 處理 .xlsx =====
             else:
                 wb = load_workbook(filepath)
 
-            # 櫃號封條 → 只取第一個sheet
+            # ===== 櫃號封條邏輯 =====
             if "櫃號封條" in filename:
                 sheets = [wb.worksheets[0]]
             else:
                 sheets = wb.worksheets
 
+            # ===== 複製內容 =====
             for sheet in sheets:
                 new_sheet = new_wb.create_sheet(title=sheet.title[:31])
 
-                for row in sheet:
+                for row in sheet.iter_rows():
                     for cell in row:
                         new_sheet[cell.coordinate].value = cell.value
 
-        except:
+                # 自動調整欄寬（優化排版）
+                for col in new_sheet.columns:
+                    max_length = 0
+                    col_letter = col[0].column_letter
+                    for cell in col:
+                        if cell.value:
+                            max_length = max(max_length, len(str(cell.value)))
+                    new_sheet.column_dimensions[col_letter].width = max_length + 2
+
+        except Exception as e:
+            print("錯誤:", e)
             continue
 
     output_path = os.path.join(UPLOAD_FOLDER, "merged.xlsx")
