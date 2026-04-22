@@ -2,6 +2,7 @@ from flask import Flask, request, send_file
 import os
 from werkzeug.utils import secure_filename
 from openpyxl import load_workbook, Workbook
+import pandas as pd
 
 app = Flask(__name__)
 UPLOAD_FOLDER = "uploads"
@@ -10,7 +11,7 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 @app.route("/")
 def index():
     return '''
-    <h2>Excel 合併工具（保留格式版）</h2>
+    <h2>Excel 合併工具（保留格式 + 支援xls）</h2>
     <form method="post" action="/merge" enctype="multipart/form-data">
         <input type="file" name="files" multiple>
         <br><br>
@@ -38,7 +39,14 @@ def merge():
         file.save(filepath)
 
         try:
-            wb = load_workbook(filepath)
+            # 如果是 .xls → 先轉成 .xlsx
+            if filename.endswith(".xls"):
+                df = pd.read_excel(filepath, engine="xlrd")
+                temp_xlsx = filepath + "x"
+                df.to_excel(temp_xlsx, index=False)
+                wb = load_workbook(temp_xlsx)
+            else:
+                wb = load_workbook(filepath)
 
             # 櫃號封條 → 只取第一個sheet
             if "櫃號封條" in filename:
